@@ -1,24 +1,23 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
-/* 
- * File:   Bezier.h
- * Author: alex
- *
- * Created on November 28, 2017, 12:48 AM
- */
-
 #ifndef BEZIER_H
 #define BEZIER_H
+
+#include <cmath>
+#include <list>
+
+typedef struct{
+    float x,y;
+    int ID;
+}vpt;
 
 class Bezier {
 public:
     Bezier();
-    Bezier(const Bezier& orig);
-    virtual ~Bezier();
+    virtual ~Bezier(){};
+    /*Compute Binomial Coefficients C for a given value of n*/
+    static void binomial(int n, int *C);
+    static void computeBezPt(float u, vpt *bezPt, int numCtr, std::list<vpt> &ctrPts, int *C);
+    static void bezier(std::list<vpt> &ctrPts, int numCtr, int nBezCurvePts);
+    static void plotPoint(vpt bezCurvePt);
 private:
 
 };
