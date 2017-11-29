@@ -327,8 +327,8 @@ void key(unsigned char ch, int x, int y)
 
     if (ch == 'i') {
         //Insert Points 
-
-
+        AddMode = ModifyMode = false;
+        InsertMode = true;
     }
 
     if (ch == 'c') {
@@ -391,7 +391,22 @@ void mouse(int button, int state, int x, int y)
             ctrPts.push_back(pt);
             Curves.at(CurrentC) = ctrPts;
         }//Add At End 
-        else if (Delete) {
+        else if (InsertMode) {
+            for (auto itr = Curves.at(CurrentC).begin(); itr != Curves.at(CurrentC).end(); itr++) {
+                if (itr->x > pt.x) {
+
+                    Curves.at(CurrentC).insert(itr, pt);
+                    ctrPts = Curves.at(CurrentC);
+                    break;
+                }
+                else if(abs(itr->x - next(itr)->x) < 5){
+                    Curves.at(CurrentC).insert(++itr, pt);
+                    ctrPts = Curves.at(CurrentC);
+                    break;
+                }
+            }//Insert Point 
+
+        } else if (Delete) {
             for (auto itr = Curves.at(CurrentC).begin(); itr != Curves.at(CurrentC).end(); itr++) {
                 if (abs(itr->x - pt.x) < 5 && abs(itr->y - pt.y) < 5) {
 
