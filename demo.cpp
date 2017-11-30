@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
+#include "FileIO.h"
 #include "Bezier.h"
 #include <iostream>
 #include <cmath>
@@ -33,11 +33,12 @@
 
 using namespace std;
 
-//typedef struct {
-//    float x, y;
-//    int ID; //Curve Points belong to
-//} vpt;
 
+typedef struct{
+    int id;
+    int val;
+    int ctr;
+}knot;
 //translated point pointer
 static vpt *t;
 
@@ -46,14 +47,22 @@ vpt *t_original;
 
 list<vpt> ctrPts;
 vector< list<vpt> > Curves;
+vector< list<float> > Knots;
 
 //AddMode
 bool AddMode = false;
 bool ModifyMode = false;
 bool InsertMode = false;
 
+bool CHull = true;
 //Working Curve
 int CurrentC;
+
+//deBoor Order K (default = 3)
+int order = 3;
+
+//Type of Curve to Use (BSpline=0 or Bezier=1)
+int CType;
 
 
 
@@ -89,6 +98,7 @@ int main(int argc, char **argv)
 {
     //initialize Working Curve
     CurrentC = 0;
+    FileIO::read(Curves);
 
     //the number of pixels in the grid
     grid_width = 800;
@@ -135,7 +145,6 @@ int main(int argc, char **argv)
 /*initialize gl stufff*/
 void init()
 {
-    Curves.resize(1);
     //set clear color (Default background to white)
     glClearColor(0.0, 0.0, 0.0, 0.0);
     //checks for OpenGL errors
@@ -146,6 +155,7 @@ void init()
 
 void idle()
 {
+    
     //redraw the scene over and over again
     glutPostRedisplay();
 }
@@ -154,12 +164,33 @@ void idle()
 
 void display()
 {
+    int CID = 0;
     //clears the screen
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     //clears the opengl Modelview transformation matrix
     glLoadIdentity();
 
-
+    if(1){
+        
+        
+        int i = 0;
+        Knots.resize(Curves.size());
+        //Calculate Knots
+        Knots.at(CurrentC).clear();
+        
+        
+        
+        for(i = 1; i <= Curves.at(CurrentC).size() - order; i++){    
+            Knots.at(CurrentC).push_back(i);   
+        }//For Control Knots  
+        
+        for(int k = 0; k < order; k++)
+            Knots.at(CurrentC).push_front(0.0);
+            
+        for(int k = 0; k < order; k++)
+            Knots.at(CurrentC).push_back(i);    
+        
+    }
 
 
     //Display FrameBuffer
@@ -172,14 +203,16 @@ void display()
     //Display Convex HULL
     glPointSize(1);
     glLineWidth(1);
+    if(CHull)
     for (auto c : Curves) {
         int size = 0;
+        
         for (auto itr = c.begin(); itr != c.end(); itr++) {
             size++;
 
             if (size < c.size()) {
                 glBegin(GL_LINES);
-                if (CurrentC == itr->ID)
+                if (CurrentC == CID)
                     glColor3f(0.0, 1.0, 0.0);
                 else
                     glColor3f(0.0, 0.0, 1.0);
@@ -188,11 +221,13 @@ void display()
                 glEnd();
             }
         }//SingleCurve
+        CID++;
     }//displayAllCurves
 
 
     //Display Control Points
     glPointSize(10);
+    if(CHull)
     for (auto c : Curves) {
         for (auto itr = c.begin(); itr != c.end(); itr++) {
 
@@ -202,8 +237,8 @@ void display()
             glEnd();
         }//Single Curve
     }//ForAllCurves
-
-
+          
+    
     //blits the current opengl framebuffer on the screen
     glutSwapBuffers();
     //checks for opengl errors
@@ -285,6 +320,13 @@ void key(unsigned char ch, int x, int y)
 {
     cout << "Curve ==> " << CurrentC << "\n";
     cout << "size ==>" << Curves.at(CurrentC).size() << "\n";
+    cout << "*** Knots ***\n";
+    
+    if(ch == 'p')
+    for(auto itr = Knots.at(CurrentC).begin(); itr != Knots.at(CurrentC).end(); itr++){    
+        cout << "  " << *itr << "  ";   
+    }
+        
 
     switch ((int) ch) {
     case GLUT_KEY_TAB:
@@ -342,6 +384,26 @@ void key(unsigned char ch, int x, int y)
         }
         AddMode = ModifyMode = InsertMode = false;
     }//Create_Curve_Push
+    
+    if(ch == 'h'){      
+        CHull = CHull ? false : true;     
+    }
+    
+    if(ch == 'k'){       
+        cout << "\nPlease Enter the new deBoor Order value: ";
+        cin >> order;
+    }
+    
+    if(ch == 'b'){
+        
+        CType = CType ? 0 : 1;
+        if(CType == 0){
+            cout << "\nEvaluating using BSpline Curve\n";
+        }
+        else{
+            cout << "\nEvaluating using Bezier Curve\n";
+        }
+    }
 
 
     //redraw the scene after keyboard input
@@ -355,6 +417,7 @@ void mouse(int button, int state, int x, int y)
 {
     bool Add = false;
     bool Delete = false;
+    bool Insert = false;
     vpt pt;
     pt.x = (int) (x / pixel_size);
     pt.y = (int) ((win_height - y) / pixel_size);
@@ -369,6 +432,8 @@ void mouse(int button, int state, int x, int y)
         //Add Point
         if (AddMode)
             Add = true;
+        else if(InsertMode)
+            Insert = true;
         break;
     case GLUT_RIGHT_BUTTON: //right button   
         Delete = true;
@@ -391,18 +456,44 @@ void mouse(int button, int state, int x, int y)
             ctrPts.push_back(pt);
             Curves.at(CurrentC) = ctrPts;
         }//Add At End 
-        else if (InsertMode) {
+        else if (Insert) {
             for (auto itr = Curves.at(CurrentC).begin(); itr != Curves.at(CurrentC).end(); itr++) {
-                if (itr->x > pt.x) {
+                if ( (itr->x < pt.x && pt.x <= next(itr)->x) && (itr->y < pt.y && pt.y <= next(itr)->y) ) {
 
-                    Curves.at(CurrentC).insert(itr, pt);
-                    ctrPts = Curves.at(CurrentC);
-                    break;
-                }
-                else if(abs(itr->x - next(itr)->x) < 5){
+                    cout << "case 1\n"; 
                     Curves.at(CurrentC).insert(++itr, pt);
                     ctrPts = Curves.at(CurrentC);
                     break;
+                }
+                else if((itr->x < pt.x && pt.x <= next(itr)->x) && (itr->y > pt.y && pt.y > next(itr)->y)){
+                    cout << "case 2\n";
+                    Curves.at(CurrentC).insert(++itr, pt);
+                    ctrPts = Curves.at(CurrentC);
+                    break;
+                }
+                else if((itr->x > pt.x && pt.x > next(itr)->x) && (itr->y > pt.y && pt.y >= next(itr)->y)){
+                    cout << "case 3\n";
+                    Curves.at(CurrentC).insert(++itr, pt);
+                    ctrPts = Curves.at(CurrentC);
+                    break;
+                }
+                else if((itr->x > pt.x && pt.x > next(itr)->x) && (itr->y < pt.y && pt.y <= next(itr)->y)){
+                    cout << "case 4\n";
+                    Curves.at(CurrentC).insert(++itr, pt);
+                    ctrPts = Curves.at(CurrentC);
+                    break;
+                }
+                else if(abs(itr->x - pt.x) < 3 && abs(next(itr)->x  - pt.x) < 3){
+                    cout << "case 5\n";
+                    Curves.at(CurrentC).insert(++itr, pt);
+                    ctrPts = Curves.at(CurrentC);
+                    break;
+                }
+                else if(abs(itr->y - pt.y) < 3 && abs(next(itr)->y  - pt.y) < 3){
+                    cout << "case 6\n";
+                    Curves.at(CurrentC).insert(++itr, pt);
+                    ctrPts = Curves.at(CurrentC);
+                    break; 
                 }
             }//Insert Point 
 
@@ -426,7 +517,11 @@ void mouse(int button, int state, int x, int y)
             }//Find Closet Point
         }//Modify Point
     }//button clicked
+    
 
+    
+    
+    FileIO::write(Curves);
     //redraw the scene after mouse click
     glutPostRedisplay();
 }

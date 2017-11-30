@@ -14,7 +14,7 @@ INCDIR := -I/usr/include
 LDLIBS := $(GLLIB)
 
 TARGET = glutdemo
-OBJS = demo.o Bezier.o
+OBJS = demo.o Bezier.o FileIO.o
 
 
 all: $(TARGET)
