@@ -1,4 +1,5 @@
 #include "Bezier.h"
+#include <iostream>
 #include <GL/glut.h>
 
 Bezier::Bezier()
@@ -58,6 +59,59 @@ void Bezier::bezier(std::list<vpt> &ctrPts, int numCtr, int nBezCurvePts){
     
     delete [] C;
     
+}
+
+
+void Bezier::spline(int order, std::vector<float> knots, std::list<vpt> &ctrPts, int numCtr, int CurvePts){
+    
+    vpt bezCurvePt;
+    float u;
+    int start = order - 1;
+    int segments = numCtr - order + 1;
+    
+    for(int i = 0; i < segments; i++){
+        
+        u = knots[start];
+        
+        std::cout << "U = "<< u << "\n";
+        
+        for(int k = 0; k < CurvePts; k++){
+        
+        float ratio = float(k) / float(CurvePts);
+        bezCurvePt = computeSplinePt(order, ctrPts, knots, u+ratio, start);
+        plotPoint(bezCurvePt);
+        }
+        
+        start++;
+    }
+ 
+}
+
+vpt Bezier::computeSplinePt(int order, std::list<vpt> ctrPts, std::vector<float> knots, float u, int I){
+    
+    std::vector <vpt> Pts;
+    Pts.resize(ctrPts.size());
+    int index = 0;
+    
+    for(auto pt : ctrPts){
+        Pts[index++] = pt;   
+    }
+    
+    for(int j = 1; j <= order - 1; j++){
+        
+        for(int i = I - (order - 1); i <= I - j; i++){
+            
+
+            Pts[i].x = ( (knots[i+order] - u)/(knots[i+order] - knots[i+j]) ) * Pts[i].x
+                      + ( (u - knots[i+j])/(knots[i+order] - knots[i+j]) ) * Pts[i+1].x;
+            
+            Pts[i].y = ( (knots[i+order] - u)/(knots[i+order] - knots[i+j]) ) * Pts[i].y
+                      + ( (u - knots[i+j])/(knots[i+order] - knots[i+j]) ) * Pts[i+1].y;
+            
+        }   
+    }
+    
+    return Pts[I - (order - 1)];
 }
 
 void Bezier::plotPoint(vpt bezCurvePt){
